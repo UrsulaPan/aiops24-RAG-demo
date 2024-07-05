@@ -10,7 +10,7 @@ from tqdm.asyncio import tqdm
 from pipeline.ingestion import build_pipeline, build_vector_store, read_data
 from pipeline.qa import read_jsonl, save_answers
 from pipeline.rag import QdrantRetriever, generation_with_knowledge_retrieval
-
+from llama_index.core.postprocessor import SentenceTransformerRerank
 
 async def main():
     config = dotenv_values(".env")
@@ -37,7 +37,7 @@ async def main():
     )
 
     if collection_info.points_count == 0:
-        data = read_data("data")
+        data = read_data("/2024aiops-share/aiops24-RAG-demo/demo/dataset")
         pipeline = build_pipeline(llm, embeding, vector_store=vector_store)
         # 暂时停止实时索引
         await client.update_collection(
@@ -50,24 +50,25 @@ async def main():
             collection_name=config["COLLECTION_NAME"] or "aiops24",
             optimizer_config=models.OptimizersConfigDiff(indexing_threshold=20000),
         )
-        print(len(data))
+        # print(len(data))
 
-    retriever = QdrantRetriever(vector_store, embeding, similarity_top_k=3)
+    retriever = QdrantRetriever(vector_store, embeding, similarity_top_k=5)
 
     queries = read_jsonl("question.jsonl")
 
     # 生成答案
     print("Start generating answers...")
-
+    # rerank = SentenceTransformerRerank(model="cross-encoder/ms-marco-MiniLM-L-2-v2", top_n=3)
+    rerank = SentenceTransformerRerank(model="BAAI/bge-reranker-base", top_n=3)
     results = []
     for query in tqdm(queries, total=len(queries)):
         result = await generation_with_knowledge_retrieval(
-            query["query"], retriever, llm
+            query["query"], retriever, llm,reranker=rerank,debug=True
         )
         results.append(result)
 
     # 处理结果
-    save_answers(queries, results, "submit_result.jsonl")
+    save_answers(queries, results, "submit_result_4.jsonl")
 
 
 if __name__ == "__main__":
