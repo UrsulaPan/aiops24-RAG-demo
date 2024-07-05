@@ -9,7 +9,7 @@ from llama_index.core.schema import Document, MetadataMode
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
-
+from llama_index.core.node_parser import HTMLNodeParser
 from custom.template import SUMMARY_EXTRACT_TEMPLATE
 from custom.transformation import CustomFilePathExtractor, CustomTitleExtractor
 
@@ -19,9 +19,11 @@ def read_data(path: str = "data") -> list[Document]:
         input_dir=path,
         recursive=True,
         required_exts=[
-            ".txt",
+            ".html",
         ],
     )
+    # for docs in reader.iter_data():
+    #     print(docs)
     return reader.load_data()
 
 
@@ -32,7 +34,8 @@ def build_pipeline(
     vector_store: BasePydanticVectorStore = None,
 ) -> IngestionPipeline:
     transformation = [
-        SentenceSplitter(chunk_size=1024, chunk_overlap=50),
+        # SentenceSplitter(chunk_size=1024, chunk_overlap=100),
+        HTMLNodeParser(tags=["p", "h1","table","td"]),
         CustomTitleExtractor(metadata_mode=MetadataMode.EMBED),
         CustomFilePathExtractor(last_path_length=4, metadata_mode=MetadataMode.EMBED),
         # SummaryExtractor(
